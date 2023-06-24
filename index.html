@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Edge Detection</title>
+  <style>
+    #canvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+  <input type="file" id="fileInput" accept="image/*" />
+  <canvas id="canvas"></canvas>
+  <button id="downloadButton" disabled>Download</button>
+
+  <script>
+    // Get the canvas element and create a 2D drawing context
+    var canvas = document.getElementById('canvas');
+    var context = canvas.getContext('2d');
+
+    // Listen for file input change event
+    var fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', function(event) {
+      var file = event.target.files[0];
+
+      var img = new Image();
+
+      // Load the selected image
+      img.onload = function() {
+        // Set the canvas size to match the image dimensions
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw the image on the canvas
+        context.drawImage(img, 0, 0);
+
+        // Apply edge detection
+        applyEdgeDetection();
+
+        // Enable download button
+        downloadButton.disabled = false;
+      };
+
+      var reader = new FileReader();
+      reader.onload = function(event) {
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Apply edge detection to the canvas image
+    function applyEdgeDetection() {
+      var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      var pixels = imageData.data;
+      var width = imageData.width;
+      var height = imageData.height;
+
+      var sobelData = new Uint8ClampedArray(pixels.length);
+
+      // Sobel operator for edge detection
+      var sobelX = [
+        -1, 0, 1,
+        -2, 0, 2,
+        -1, 0, 1
+      ];
+
+      var sobelY = [
+        -1, -2, -1,
+         0,  0,  0,
+         1,  2,  1
+      ];
+
+      var grayscalePixels = new Uint8ClampedArray(pixels.length / 4);
+
+      // Convert the image to grayscale
+      for (var i = 0, j = 0; i < pixels.length; i += 4, j++) {
+        var r = pixels[i];
+        var g = pixels[i + 1];
+        var b = pixels[i + 2];
+        var gray = (r + g + b) / 3;
+        grayscalePixels[j] = gray;
+      }
+
+      // Apply the Sobel operator
+      for (var y = 1; y < height - 1; y++) {
+        for (var x = 1; x < width - 1; x++) {
+          var index = (y * width + x) * 4;
+
+          var pixelX = (
+            sobelX[0] * grayscalePixels[(y - 1) * width + (x - 1)] +
+            sobelX[1] * grayscalePixels[(y - 1) * width + x] +
+            sobelX[2] * grayscalePixels[(y - 1) * width + (x + 1)] +
+            sobelX[3] * grayscalePixels[y * width + (x - 1)] +
+            sobelX[4] * grayscalePixels[y * width + x] +
+            sobelX[5] * grayscalePixels[y * width + (x + 1)] +
+            sobelX[6] * grayscalePixels[(y + 1) * width + (x - 1)] +
+            sobelX[7] * grayscalePixels[(y + 1) * width + x] +
+            sobelX[8] * grayscalePixels[(y + 1) * width + (x + 1)]
+          );
+
+          var pixelY = (
+            sobelY[0] * grayscalePixels[(y - 1) * width + (x - 1)] +
+            sobelY[1] * grayscalePixels[(y - 1) * width + x] +
+            sobelY[2] * grayscalePixels[(y - 1) * width + (x + 1)] +
+            sobelY[3] * grayscalePixels[y * width + (x - 1)] +
+            sobelY[4] * grayscalePixels[y * width + x] +
+            sobelY[5] * grayscalePixels[y * width + (x + 1)] +
+            sobelY[6] * grayscalePixels[(y + 1) * width + (x - 1)] +
+            sobelY[7] * grayscalePixels[(y + 1) * width + x] +
+            sobelY[8] * grayscalePixels[(y + 1) * width + (x + 1)]
+          );
+
+          var magnitude = Math.sqrt(pixelX * pixelX + pixelY * pixelY);
+          sobelData[index] = magnitude; // Red channel
+          sobelData[index + 1] = magnitude; // Green channel
+          sobelData[index + 2] = magnitude; // Blue channel
+          sobelData[index + 3] = 255; // Alpha channel
+        }
+      }
+
+      // Update the canvas with the edge-detected image data
+      var sobelImageData = new ImageData(sobelData, width, height);
+      context.putImageData(sobelImageData, 0, 0);
+    }
+
+    // Download the edge-detected image
+    var downloadButton = document.getElementById('downloadButton');
+    downloadButton.addEventListener('click', function() {
+      var dataURL = canvas.toDataURL('image/png');
+      var link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'edge_detected_image.png';
+      link.click();
+    });
+  </script>
+</body>
+</html>
